@@ -2,7 +2,14 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#d63384">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="尹森爱你">
+<meta name="application-name" content="尹森爱你">
+<link rel="manifest" href="./manifest.json">
 <title>✨ 尹蕴珩的魔法任务表 ✨</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
@@ -336,6 +343,27 @@
   /* ===== EMPTY STATE ===== */
   .empty { text-align: center; padding: 20px 0; color: #ffaac9; font-weight: 700; font-size: 0.95rem; }
 
+  /* ===== INSTALL BUTTON ===== */
+  .install-btn {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin: 0 auto 12px;
+    background: linear-gradient(135deg, #d63384, #e75480);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 22px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(214,51,132,0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .install-btn:hover { transform: scale(1.05); box-shadow: 0 6px 18px rgba(214,51,132,0.5); }
+  .install-btn:active { transform: scale(0.97); }
+
   /* ===== RESPONSIVE ===== */
   @media (max-width: 400px) {
     .header h1 { font-size: 1.8rem; }
@@ -366,6 +394,7 @@
   </div>
 </div>
 
+<button class="install-btn" id="installBtn" onclick="installApp()">📲 添加到主屏幕</button>
 <div class="date-bar" id="dateBar">📅 加载中...</div>
 
 <div class="card">
@@ -565,6 +594,33 @@
 
   // ===== INIT =====
   render();
+
+  // ===== PWA SERVICE WORKER =====
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+
+  // ===== PWA INSTALL PROMPT (Android/Huawei) =====
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const btn = document.getElementById('installBtn');
+    if (btn) btn.style.display = 'flex';
+  });
+  window.addEventListener('appinstalled', () => {
+    const btn = document.getElementById('installBtn');
+    if (btn) btn.style.display = 'none';
+    deferredPrompt = null;
+  });
+  function installApp() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+    }
+  }
 </script>
 </body>
 </html>
