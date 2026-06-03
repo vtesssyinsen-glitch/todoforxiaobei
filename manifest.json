@@ -1,0 +1,25 @@
+{
+  "name": "尹森爱你",
+  "short_name": "尹森爱你",
+  "description": "尹蕴珩的魔法任务表",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffb3d1",
+  "theme_color": "#d63384",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
