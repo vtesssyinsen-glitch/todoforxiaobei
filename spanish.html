@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#d63384">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="西语学习">
+<title>🌟 西语魔法课堂 🌟</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #ffb3d1 0%, #ffd6e8 30%, #ffe8f5 60%, #ffc8e8 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    overflow-x: hidden;
+  }
+
+  /* ===== FLOATING STARS ===== */
+  .star { position: fixed; pointer-events: none; font-size: 16px; animation: floatStar linear infinite; opacity: 0.5; z-index: 0; }
+  @keyframes floatStar {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.5; }
+    90% { opacity: 0.5; }
+    100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    text-align: center;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+  }
+  .header h1 {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #d63384;
+    text-shadow: 3px 3px 0 #ffb3d1, 0 0 20px rgba(214,51,132,0.3);
+    letter-spacing: 2px;
+  }
+  .header p { color: #e75480; font-size: 0.95rem; margin-top: 4px; font-weight: 700; }
+
+  /* ===== AUDIO UNLOCK BANNER ===== */
+  .unlock-banner {
+    background: linear-gradient(135deg, #fff3cd, #fff);
+    border: 2px solid #ffc107;
+    border-radius: 16px;
+    padding: 10px 18px;
+    margin-bottom: 12px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #856404;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 1;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .unlock-banner:active { transform: scale(0.97); }
+  .unlock-banner.hidden { display: none; }
+
+  /* ===== TABS ===== */
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    z-index: 1;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .tab-btn {
+    background: rgba(255,255,255,0.6);
+    border: 2px solid rgba(255,182,213,0.6);
+    border-radius: 20px;
+    padding: 7px 16px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 900;
+    color: #d63384;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    background: linear-gradient(135deg, #d63384, #e75480);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(214,51,132,0.35);
+  }
+
+  /* ===== MAIN CARD ===== */
+  .card {
+    background: rgba(255,255,255,0.8);
+    backdrop-filter: blur(12px);
+    border-radius: 28px;
+    padding: 20px;
+    width: 100%;
+    max-width: 540px;
+    box-shadow: 0 12px 40px rgba(214,51,132,0.18), 0 4px 12px rgba(0,0,0,0.06);
+    border: 2px solid rgba(255,182,213,0.5);
+    z-index: 1;
+  }
+
+  /* ===== FLASHCARD ===== */
+  .flashcard-section { display: none; }
+  .flashcard-section.active { display: block; }
+
+  .category-label {
+    font-size: 0.8rem;
+    font-weight: 900;
+    color: #e75480;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .flashcard {
+    background: linear-gradient(135deg, #fff0f7, white);
+    border: 3px solid #ffb3d1;
+    border-radius: 24px;
+    padding: 28px 20px;
+    text-align: center;
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .flashcard:active { transform: scale(0.97); }
+  .flashcard.playing {
+    border-color: #d63384;
+    box-shadow: 0 0 0 4px rgba(214,51,132,0.2);
+    animation: pulseCard 0.6s ease-out;
+  }
+  @keyframes pulseCard {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.03); }
+    100% { transform: scale(1); }
+  }
+
+  .card-emoji { font-size: 3.5rem; line-height: 1; }
+  .card-spanish {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #d63384;
+    letter-spacing: 1px;
+  }
+  .card-phonetic {
+    font-size: 0.95rem;
+    color: #aaa;
+    font-style: italic;
+  }
+  .card-chinese {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #666;
+  }
+  .speak-hint {
+    font-size: 0.75rem;
+    color: #ffaac9;
+    font-weight: 700;
+    position: absolute;
+    bottom: 10px;
+    right: 14px;
+  }
+
+  /* ===== NAV BUTTONS ===== */
+  .nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .nav-btn {
+    background: linear-gradient(135deg, #d63384, #e75480);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    padding: 12px 22px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(214,51,132,0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nav-btn:active { transform: scale(0.95); }
+  .nav-btn.secondary {
+    background: rgba(255,255,255,0.8);
+    color: #d63384;
+    border: 2px solid #ffb3d1;
+    box-shadow: none;
+  }
+  .card-counter {
+    font-size: 0.9rem;
+    font-weight: 900;
+    color: #d63384;
+    min-width: 60px;
+    text-align: center;
+  }
+
+  /* ===== SPEAK BUTTON ===== */
+  .speak-btn {
+    background: linear-gradient(135deg, #ff9ec4, #d63384);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 24px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 auto 14px;
+    box-shadow: 0 4px 14px rgba(214,51,132,0.35);
+    transition: transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .speak-btn:active { transform: scale(0.95); }
+  .speak-btn.playing { animation: speakPulse 0.5s ease-out; }
+  @keyframes speakPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+
+  /* ===== QUIZ SECTION ===== */
+  .quiz-section { display: none; }
+  .quiz-section.active { display: block; }
+
+  .quiz-question {
+    text-align: center;
+    margin-bottom: 18px;
+  }
+  .quiz-q-emoji { font-size: 3rem; }
+  .quiz-q-word {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #d63384;
+    margin: 8px 0 4px;
+  }
+  .quiz-q-hint { font-size: 0.85rem; color: #aaa; font-style: italic; }
+
+  .quiz-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .quiz-opt {
+    background: white;
+    border: 2px solid #ffb3d1;
+    border-radius: 16px;
+    padding: 14px 10px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #555;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .quiz-opt:active { transform: scale(0.97); }
+  .quiz-opt.correct {
+    background: linear-gradient(135deg, #d4f8e8, #b2f0d4);
+    border-color: #0a9e60;
+    color: #0a9e60;
+  }
+  .quiz-opt.wrong {
+    background: linear-gradient(135deg, #ffe0e0, #ffb3b3);
+    border-color: #e74c3c;
+    color: #e74c3c;
+  }
+
+  .quiz-score {
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 900;
+    color: #e75480;
+    margin-bottom: 10px;
+  }
+  .quiz-result {
+    text-align: center;
+    padding: 16px;
+    background: linear-gradient(135deg, #fff0f7, #ffe8f5);
+    border-radius: 18px;
+    border: 2px dashed #ffb3d1;
+    display: none;
+  }
+  .quiz-result.show { display: block; animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .quiz-result p { font-size: 1rem; font-weight: 900; color: #d63384; margin-bottom: 6px; }
+
+  /* ===== PROGRESS ===== */
+  .progress-wrap { margin-top: 8px; }
+  .progress-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .progress-text { font-size: 0.8rem; font-weight: 700; color: #e75480; }
+  .progress-bar-bg { background: #ffe0ef; border-radius: 99px; height: 10px; overflow: hidden; }
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #ff9ec4, #d63384);
+    transition: width 0.5s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  /* ===== CATEGORY GRID ===== */
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .cat-btn {
+    background: white;
+    border: 2px solid #ffb3d1;
+    border-radius: 14px;
+    padding: 10px 6px;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 900;
+    color: #d63384;
+    text-align: center;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cat-btn.active {
+    background: linear-gradient(135deg, #d63384, #e75480);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 3px 10px rgba(214,51,132,0.3);
+  }
+  .cat-btn .cat-emoji { font-size: 1.4rem; }
+
+  @media (max-width: 400px) {
+    .header h1 { font-size: 1.6rem; }
+    .card-spanish { font-size: 1.7rem; }
+    .card-emoji { font-size: 2.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stars-container"></div>
+
+<div class="header">
+  <h1>🌟 西语魔法课堂 🌟</h1>
+  <p>点击单词，听发音！🔊 学西班牙语超开心～</p>
+</div>
+
+<!-- 华为音频解锁提示 -->
+<div class="unlock-banner" id="unlockBanner" onclick="manualUnlock()">
+  🔇 点这里开启声音（华为/安卓首次需点击）
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('flashcard')">📚 单词卡</button>
+  <button class="tab-btn" onclick="switchTab('quiz')">🎯 小测验</button>
+</div>
+
+<div class="card">
+
+  <!-- ===== FLASHCARD SECTION ===== -->
+  <div class="flashcard-section active" id="flashcardSection">
+
+    <!-- Category Select -->
+    <div class="cat-grid" id="catGrid"></div>
+
+    <div class="category-label" id="catLabel">📋 选择分类开始学习</div>
+
+    <!-- Card Display -->
+    <div class="flashcard" id="flashcard" onclick="speakCurrent()">
+      <div class="card-emoji" id="cardEmoji">🌸</div>
+      <div class="card-spanish" id="cardSpanish">¡Hola!</div>
+      <div class="card-phonetic" id="cardPhonetic">/ ó·la /</div>
+      <div class="card-chinese" id="cardChinese">你好！</div>
+      <div class="speak-hint">🔊 点击发音</div>
+    </div>
+
+    <!-- Speak Button -->
+    <button class="speak-btn" id="speakBtn" onclick="speakCurrent()">
+      🔊 再听一遍
+    </button>
+
+    <!-- Nav -->
+    <div class="nav-row">
+      <button class="nav-btn secondary" onclick="prevCard()">← 上一个</button>
+      <span class="card-counter" id="cardCounter">1 / 1</span>
+      <button class="nav-btn" onclick="nextCard()">下一个 →</button>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap">
+      <div class="progress-header">
+        <span class="progress-text">🎀 学习进度</span>
+        <span class="progress-text" id="seenCount">已学 0 个</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== QUIZ SECTION ===== -->
+  <div class="quiz-section" id="quizSection">
+
+    <div class="quiz-score" id="quizScore">🎯 得分：0 / 0</div>
+
+    <div class="quiz-question">
+      <div class="quiz-q-emoji" id="qEmoji">🌸</div>
+      <div class="quiz-q-word" id="qWord">¡Hola!</div>
+      <div class="quiz-q-hint" id="qHint">/ ó·la /</div>
+    </div>
+
+    <button class="speak-btn" style="margin-bottom:16px" onclick="speakQuizWord()">
+      🔊 听发音
+    </button>
+
+    <div class="quiz-options" id="quizOptions"></div>
+
+    <div class="quiz-result" id="quizResult">
+      <p id="quizResultText">🎉 测验完成！</p>
+      <p id="quizResultScore"></p>
+      <button class="nav-btn" onclick="startQuiz()" style="margin-top:10px">🔄 再来一次</button>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// ===== VOCAB DATA =====
+const VOCAB = {
+  greetings: {
+    label: '打招呼',
+    emoji: '👋',
+    words: [
+      { es: 'Hola', ph: '/ ó·la /', zh: '你好', icon: '👋' },
+      { es: 'Buenos días', ph: '/ bwé·nos dí·as /', zh: '早上好', icon: '🌅' },
+      { es: 'Buenas tardes', ph: '/ bwé·nas tár·des /', zh: '下午好', icon: '☀️' },
+      { es: 'Buenas noches', ph: '/ bwé·nas nó·ches /', zh: '晚上好', icon: '🌙' },
+      { es: 'Adiós', ph: '/ a·dióss /', zh: '再见', icon: '👋' },
+      { es: 'Por favor', ph: '/ por fa·bór /', zh: '请', icon: '🙏' },
+      { es: 'Gracias', ph: '/ grá·sias /', zh: '谢谢', icon: '💖' },
+      { es: 'De nada', ph: '/ de ná·da /', zh: '不客气', icon: '😊' },
+      { es: '¿Cómo estás?', ph: '/ kó·mo es·tás /', zh: '你好吗？', icon: '🙂' },
+      { es: 'Bien', ph: '/ bién /', zh: '很好', icon: '✌️' },
+    ]
+  },
+  numbers: {
+    label: '数字',
+    emoji: '🔢',
+    words: [
+      { es: 'uno', ph: '/ ú·no /', zh: '一', icon: '1️⃣' },
+      { es: 'dos', ph: '/ doss /', zh: '二', icon: '2️⃣' },
+      { es: 'tres', ph: '/ tress /', zh: '三', icon: '3️⃣' },
+      { es: 'cuatro', ph: '/ kuá·tro /', zh: '四', icon: '4️⃣' },
+      { es: 'cinco', ph: '/ sín·ko /', zh: '五', icon: '5️⃣' },
+      { es: 'seis', ph: '/ seiss /', zh: '六', icon: '6️⃣' },
+      { es: 'siete', ph: '/ sié·te /', zh: '七', icon: '7️⃣' },
+      { es: 'ocho', ph: '/ ó·cho /', zh: '八', icon: '8️⃣' },
+      { es: 'nueve', ph: '/ nwé·be /', zh: '九', icon: '9️⃣' },
+      { es: 'diez', ph: '/ diéss /', zh: '十', icon: '🔟' },
+    ]
+  },
+  colors: {
+    label: '颜色',
+    emoji: '🌈',
+    words: [
+      { es: 'rojo', ph: '/ ró·xo /', zh: '红色', icon: '🔴' },
+      { es: 'azul', ph: '/ a·súl /', zh: '蓝色', icon: '🔵' },
+      { es: 'verde', ph: '/ bér·de /', zh: '绿色', icon: '🟢' },
+      { es: 'amarillo', ph: '/ a·ma·rí·yo /', zh: '黄色', icon: '🟡' },
+      { es: 'blanco', ph: '/ blán·ko /', zh: '白色', icon: '⬜' },
+      { es: 'negro', ph: '/ né·gro /', zh: '黑色', icon: '⬛' },
+      { es: 'rosa', ph: '/ ró·sa /', zh: '粉色', icon: '🌸' },
+      { es: 'naranja', ph: '/ na·rán·xa /', zh: '橙色', icon: '🟠' },
+      { es: 'morado', ph: '/ mo·rá·do /', zh: '紫色', icon: '🟣' },
+      { es: 'gris', ph: '/ griss /', zh: '灰色', icon: '🩶' },
+    ]
+  },
+  animals: {
+    label: '动物',
+    emoji: '🐾',
+    words: [
+      { es: 'gato', ph: '/ gá·to /', zh: '猫', icon: '🐱' },
+      { es: 'perro', ph: '/ pé·ro /', zh: '狗', icon: '🐶' },
+      { es: 'pájaro', ph: '/ pá·xa·ro /', zh: '鸟', icon: '🐦' },
+      { es: 'pez', ph: '/ péss /', zh: '鱼', icon: '🐟' },
+      { es: 'conejo', ph: '/ ko·né·xo /', zh: '兔子', icon: '🐰' },
+      { es: 'oso', ph: '/ ó·so /', zh: '熊', icon: '🐻' },
+      { es: 'elefante', ph: '/ e·le·fán·te /', zh: '大象', icon: '🐘' },
+      { es: 'tigre', ph: '/ tí·gre /', zh: '老虎', icon: '🐯' },
+      { es: 'caballo', ph: '/ ka·bá·yo /', zh: '马', icon: '🐴' },
+      { es: 'mariposa', ph: '/ ma·ri·pó·sa /', zh: '蝴蝶', icon: '🦋' },
+    ]
+  },
+  food: {
+    label: '食物',
+    emoji: '🍎',
+    words: [
+      { es: 'manzana', ph: '/ man·sá·na /', zh: '苹果', icon: '🍎' },
+      { es: 'pan', ph: '/ pán /', zh: '面包', icon: '🍞' },
+      { es: 'agua', ph: '/ á·gwa /', zh: '水', icon: '💧' },
+      { es: 'leche', ph: '/ lé·che /', zh: '牛奶', icon: '🥛' },
+      { es: 'arroz', ph: '/ a·róss /', zh: '米饭', icon: '🍚' },
+      { es: 'pollo', ph: '/ pó·yo /', zh: '鸡肉', icon: '🍗' },
+      { es: 'pizza', ph: '/ pí·tsa /', zh: '披萨', icon: '🍕' },
+      { es: 'helado', ph: '/ e·lá·do /', zh: '冰淇淋', icon: '🍦' },
+      { es: 'naranja', ph: '/ na·rán·xa /', zh: '橙子', icon: '🍊' },
+      { es: 'café', ph: '/ ka·fé /', zh: '咖啡', icon: '☕' },
+    ]
+  },
+  family: {
+    label: '家人',
+    emoji: '👨‍👩‍👧',
+    words: [
+      { es: 'madre', ph: '/ má·dre /', zh: '妈妈', icon: '👩' },
+      { es: 'padre', ph: '/ pá·dre /', zh: '爸爸', icon: '👨' },
+      { es: 'hermano', ph: '/ er·má·no /', zh: '兄弟', icon: '👦' },
+      { es: 'hermana', ph: '/ er·má·na /', zh: '姐妹', icon: '👧' },
+      { es: 'abuela', ph: '/ a·bwé·la /', zh: '奶奶/外婆', icon: '👵' },
+      { es: 'abuelo', ph: '/ a·bwé·lo /', zh: '爷爷/外公', icon: '👴' },
+      { es: 'bebé', ph: '/ be·bé /', zh: '宝宝', icon: '👶' },
+      { es: 'amigo', ph: '/ a·mí·go /', zh: '朋友(男)', icon: '🤝' },
+      { es: 'amiga', ph: '/ a·mí·ga /', zh: '朋友(女)', icon: '🤝' },
+      { es: 'novio', ph: '/ nó·bio /', zh: '男朋友', icon: '💑' },
+    ]
+  },
+};
+
+// ===== AUDIO STATE =====
+let audioUnlocked = false;
+let audioCtx = null;
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // 播放一段无声音频来激活音频上下文（华为必须这一步）
+    const buf = audioCtx.createBuffer(1, 1, 22050);
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+    src.start(0);
+    audioUnlocked = true;
+    document.getElementById('unlockBanner').classList.add('hidden');
+  } catch(e) {
+    // 降级处理：即使失败也继续
+    audioUnlocked = true;
+    document.getElementById('unlockBanner').classList.add('hidden');
+  }
+}
+
+function manualUnlock() {
+  unlockAudio();
+  // 测试播放一个词
+  if (currentWords.length > 0) speakCurrent();
+}
+
+// ===== 华为专用 TTS 修复 =====
+// 华为浏览器需要：先 cancel → 等 100ms → 再 speak
+// 否则第一次或连续播放时静音
+function speakText(text) {
+  unlockAudio();
+
+  if (!('speechSynthesis' in window)) {
+    showNoTTSWarning();
+    return;
+  }
+
+  const btn = document.getElementById('speakBtn');
+  const card = document.getElementById('flashcard');
+
+  // 华为关键修复：必须先 cancel
+  window.speechSynthesis.cancel();
+
+  setTimeout(() => {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'es-ES';
+    utter.rate = 0.75;   // 稍慢，更清晰
+    utter.pitch = 1;
+    utter.volume = 1;
+
+    utter.onstart = () => {
+      if (btn) { btn.classList.add('playing'); btn.textContent = '🔊 正在发音...'; }
+      if (card) card.classList.add('playing');
+    };
+    utter.onend = () => {
+      if (btn) { btn.classList.remove('playing'); btn.innerHTML = '🔊 再听一遍'; }
+      if (card) card.classList.remove('playing');
+    };
+    utter.onerror = () => {
+      if (btn) { btn.classList.remove('playing'); btn.innerHTML = '🔊 再听一遍'; }
+      if (card) card.classList.remove('playing');
+    };
+
+    // 华为额外修复：某些版本需要选择正确的 voice
+    const voices = window.speechSynthesis.getVoices();
+    const esVoice = voices.find(v =>
+      v.lang.startsWith('es') ||
+      v.name.toLowerCase().includes('spanish') ||
+      v.name.toLowerCase().includes('español')
+    );
+    if (esVoice) utter.voice = esVoice;
+
+    window.speechSynthesis.speak(utter);
+
+    // 华为 bug：长时间不说话后 synthesis 会挂住，用 resume 解锁
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+  }, 120);
+}
+
+function showNoTTSWarning() {
+  alert('你的浏览器不支持语音功能。\n请尝试用 Chrome 浏览器打开本页面。');
+}
+
+// 华为上 voices 可能延迟加载，监听变化
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+}
+
+// ===== STATE =====
+let currentCat = 'greetings';
+let currentIndex = 0;
+let currentWords = [];
+let seenSet = new Set();
+
+// Quiz state
+let quizWords = [];
+let quizIndex = 0;
+let quizCorrect = 0;
+let quizAnswered = false;
+
+// ===== INIT CATEGORIES =====
+function buildCatGrid() {
+  const grid = document.getElementById('catGrid');
+  grid.innerHTML = '';
+  Object.entries(VOCAB).forEach(([key, cat]) => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn' + (key === currentCat ? ' active' : '');
+    btn.innerHTML = `<span class="cat-emoji">${cat.emoji}</span>${cat.label}`;
+    btn.onclick = () => selectCat(key);
+    grid.appendChild(btn);
+  });
+}
+
+function selectCat(key) {
+  currentCat = key;
+  currentIndex = 0;
+  currentWords = VOCAB[key].words;
+  document.querySelectorAll('.cat-btn').forEach((b, i) => {
+    b.classList.toggle('active', Object.keys(VOCAB)[i] === key);
+  });
+  document.getElementById('catLabel').textContent = `${VOCAB[key].emoji} ${VOCAB[key].label}`;
+  showCard();
+}
+
+function showCard() {
+  if (!currentWords.length) return;
+  const w = currentWords[currentIndex];
+  document.getElementById('cardEmoji').textContent = w.icon;
+  document.getElementById('cardSpanish').textContent = w.es;
+  document.getElementById('cardPhonetic').textContent = w.ph;
+  document.getElementById('cardChinese').textContent = w.zh;
+  document.getElementById('cardCounter').textContent = `${currentIndex + 1} / ${currentWords.length}`;
+
+  seenSet.add(currentCat + '_' + currentIndex);
+  const total = Object.values(VOCAB).reduce((s, c) => s + c.words.length, 0);
+  const pct = Math.round(seenSet.size / total * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('seenCount').textContent = `已学 ${seenSet.size} 个`;
+}
+
+function speakCurrent() {
+  if (!currentWords.length) return;
+  speakText(currentWords[currentIndex].es);
+}
+
+function nextCard() {
+  unlockAudio();
+  currentIndex = (currentIndex + 1) % currentWords.length;
+  showCard();
+  speakCurrent();
+}
+
+function prevCard() {
+  unlockAudio();
+  currentIndex = (currentIndex - 1 + currentWords.length) % currentWords.length;
+  showCard();
+  speakCurrent();
+}
+
+// ===== QUIZ =====
+function buildQuizWords() {
+  // 从所有分类各取一些词，打乱
+  const all = [];
+  Object.values(VOCAB).forEach(cat => cat.words.forEach(w => all.push(w)));
+  // 随机抽 10 题
+  quizWords = all.sort(() => Math.random() - 0.5).slice(0, 10);
+  quizIndex = 0;
+  quizCorrect = 0;
+  quizAnswered = false;
+  document.getElementById('quizResult').classList.remove('show');
+  document.getElementById('quizScore').textContent = '🎯 得分：0 / 0';
+}
+
+function startQuiz() {
+  buildQuizWords();
+  showQuizQuestion();
+}
+
+function showQuizQuestion() {
+  if (quizIndex >= quizWords.length) {
+    showQuizResult();
+    return;
+  }
+
+  const w = quizWords[quizIndex];
+  document.getElementById('qEmoji').textContent = w.icon;
+  document.getElementById('qWord').textContent = w.es;
+  document.getElementById('qHint').textContent = w.ph;
+  quizAnswered = false;
+
+  // Build 4 options: 1 correct + 3 random wrong
+  const all = [];
+  Object.values(VOCAB).forEach(cat => cat.words.forEach(x => {
+    if (x.es !== w.es) all.push(x.zh);
+  }));
+  const wrong = all.sort(() => Math.random() - 0.5).slice(0, 3);
+  const opts = [w.zh, ...wrong].sort(() => Math.random() - 0.5);
+
+  const container = document.getElementById('quizOptions');
+  container.innerHTML = '';
+  opts.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'quiz-opt';
+    btn.textContent = opt;
+    btn.onclick = () => answerQuiz(btn, opt, w.zh);
+    container.appendChild(btn);
+  });
+
+  document.getElementById('quizResult').classList.remove('show');
+  speakQuizWord();
+}
+
+function speakQuizWord() {
+  if (quizIndex < quizWords.length) {
+    speakText(quizWords[quizIndex].es);
+  }
+}
+
+function answerQuiz(btn, chosen, correct) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+  unlockAudio();
+
+  const container = document.getElementById('quizOptions');
+  Array.from(container.children).forEach(b => {
+    if (b.textContent === correct) b.classList.add('correct');
+  });
+
+  if (chosen === correct) {
+    quizCorrect++;
+    btn.classList.add('correct');
+  } else {
+    btn.classList.add('wrong');
+  }
+
+  document.getElementById('quizScore').textContent =
+    `🎯 得分：${quizCorrect} / ${quizIndex + 1}`;
+
+  setTimeout(() => {
+    quizIndex++;
+    showQuizQuestion();
+  }, 1400);
+}
+
+function showQuizResult() {
+  const result = document.getElementById('quizResult');
+  const pct = Math.round(quizCorrect / quizWords.length * 100);
+  let emoji = pct >= 90 ? '🏆' : pct >= 70 ? '🌟' : pct >= 50 ? '🎀' : '💪';
+  document.getElementById('quizResultText').textContent =
+    `${emoji} 完成！答对 ${quizCorrect} / ${quizWords.length} 题`;
+  document.getElementById('quizResultScore').textContent =
+    pct >= 90 ? '太厉害了！！！🎉' :
+    pct >= 70 ? '做得很好！继续加油！✨' :
+    pct >= 50 ? '不错哦，再练练吧～🌸' : '多练习几遍，你能行的！💕';
+  result.classList.add('show');
+  document.getElementById('quizOptions').innerHTML = '';
+}
+
+// ===== TAB SWITCH =====
+function switchTab(tab) {
+  document.getElementById('flashcardSection').classList.toggle('active', tab === 'flashcard');
+  document.getElementById('quizSection').classList.toggle('active', tab === 'quiz');
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0) === (tab === 'flashcard'));
+  });
+  if (tab === 'quiz') startQuiz();
+}
+
+// ===== FLOATING STARS =====
+const STAR_EMOJIS = ['⭐','🌟','✨','💖','🌸','🎀','💕','🦋','🌺','🍬'];
+function createStar() {
+  const el = document.createElement('div');
+  el.className = 'star';
+  el.textContent = STAR_EMOJIS[Math.floor(Math.random() * STAR_EMOJIS.length)];
+  el.style.left = Math.random() * 100 + 'vw';
+  el.style.fontSize = (10 + Math.random() * 12) + 'px';
+  const dur = 8 + Math.random() * 12;
+  el.style.animationDuration = dur + 's';
+  el.style.animationDelay = -Math.random() * dur + 's';
+  document.getElementById('stars-container').appendChild(el);
+}
+for (let i = 0; i < 15; i++) createStar();
+
+// ===== 华为：在任意触摸事件上解锁音频 =====
+document.addEventListener('touchstart', () => {
+  if (!audioUnlocked) unlockAudio();
+}, { once: true, passive: true });
+
+// ===== INIT =====
+buildCatGrid();
+selectCat('greetings');
+</script>
+</body>
+</html>
