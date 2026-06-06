@@ -66,9 +66,25 @@
     z-index: 1;
     cursor: pointer;
     transition: transform 0.15s;
+    max-width: 540px;
+    width: 100%;
   }
   .unlock-banner:active { transform: scale(0.97); }
   .unlock-banner.hidden { display: none; }
+
+  /* ===== AUDIO STATUS ===== */
+  .audio-status {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 99px;
+    margin: 0 auto 10px;
+    display: inline-block;
+  }
+  .audio-status.ok { background: #d4f8e8; color: #0a9e60; }
+  .audio-status.fallback { background: #fff3cd; color: #856404; }
+  .audio-status.error { background: #ffe0e0; color: #c0392b; }
+  .audio-status-wrap { text-align: center; }
 
   /* ===== TABS ===== */
   .tabs {
@@ -375,6 +391,9 @@
 <div class="unlock-banner" id="unlockBanner" onclick="manualUnlock()">
   🔇 点这里开启声音（华为/安卓首次需点击）
 </div>
+<div class="audio-status-wrap">
+  <span class="audio-status" id="audioStatus" style="display:none"></span>
+</div>
 
 <!-- Tabs -->
 <div class="tabs">
@@ -554,97 +573,160 @@ const VOCAB = {
   },
 };
 
-// ===== AUDIO STATE =====
-let audioUnlocked = false;
-let audioCtx = null;
+// ===== AUDIO ENGINE =====
+// 三级策略：Web Speech API（有西语voice）→ 有道TTS音频（国内可用）→ 静默失败
+//
+// 国内华为（HarmonyOS，无谷歌服务）根本没有西语TTS，
+// speechSynthesis 存在但 getVoices() 只有中文或为空，
+// 必须降级到有道词典 TTS 音频接口（国内正常访问，支持西语）。
 
+const AUDIO_MODE = { DETECTING: 0, WEB_SPEECH: 1, YOUDAO: 2, NONE: 3 };
+let audioMode = AUDIO_MODE.DETECTING;
+let audioUnlocked = false;
+let esVoice = null;
+let currentAudio = null; // 当前播放的 <audio> 元素
+
+function setAudioStatus(text, cls) {
+  const el = document.getElementById('audioStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'audio-status ' + cls;
+  el.style.display = 'inline-block';
+}
+
+// 初始化 AudioContext（解锁华为/安卓音频策略）
 function unlockAudio() {
   if (audioUnlocked) return;
   try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    // 播放一段无声音频来激活音频上下文（华为必须这一步）
-    const buf = audioCtx.createBuffer(1, 1, 22050);
-    const src = audioCtx.createBufferSource();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
     src.buffer = buf;
-    src.connect(audioCtx.destination);
+    src.connect(ctx.destination);
     src.start(0);
-    audioUnlocked = true;
-    document.getElementById('unlockBanner').classList.add('hidden');
-  } catch(e) {
-    // 降级处理：即使失败也继续
-    audioUnlocked = true;
-    document.getElementById('unlockBanner').classList.add('hidden');
-  }
+  } catch (_) {}
+  audioUnlocked = true;
+  document.getElementById('unlockBanner').classList.add('hidden');
 }
 
 function manualUnlock() {
   unlockAudio();
-  // 测试播放一个词
   if (currentWords.length > 0) speakCurrent();
 }
 
-// ===== 华为专用 TTS 修复 =====
-// 华为浏览器需要：先 cancel → 等 100ms → 再 speak
-// 否则第一次或连续播放时静音
-function speakText(text) {
-  unlockAudio();
-
+// 检测是否有西语 voice
+function detectVoices() {
   if (!('speechSynthesis' in window)) {
-    showNoTTSWarning();
+    audioMode = AUDIO_MODE.YOUDAO;
+    setAudioStatus('📻 有道TTS模式（无系统西语）', 'fallback');
     return;
   }
+  const voices = window.speechSynthesis.getVoices();
+  esVoice = voices.find(v =>
+    v.lang.startsWith('es') ||
+    v.name.toLowerCase().includes('spanish') ||
+    v.name.toLowerCase().includes('español')
+  );
+  if (esVoice) {
+    audioMode = AUDIO_MODE.WEB_SPEECH;
+    setAudioStatus('🔊 系统西语语音', 'ok');
+  } else if (voices.length > 0) {
+    // 有voices但没有西语 → 用有道
+    audioMode = AUDIO_MODE.YOUDAO;
+    setAudioStatus('📻 有道TTS模式（系统无西语）', 'fallback');
+  }
+  // voices.length === 0 时保持 DETECTING，等 onvoiceschanged
+}
 
-  const btn = document.getElementById('speakBtn');
-  const card = document.getElementById('flashcard');
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => { detectVoices(); };
+  detectVoices();
+}
 
-  // 华为关键修复：必须先 cancel
+// 有道词典TTS（国内可访问，支持西语 le=es）
+function playYoudao(text) {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  const url = 'https://dict.youdao.com/dictvoice?le=es&audio=' + encodeURIComponent(text);
+  const audio = new Audio(url);
+  audio.volume = 1;
+  currentAudio = audio;
+
+  setPlayingUI(true);
+  audio.onended = () => setPlayingUI(false);
+  audio.onerror = () => {
+    setPlayingUI(false);
+    setAudioStatus('❌ 加载失败，请检查网络', 'error');
+  };
+
+  const p = audio.play();
+  if (p) p.catch(() => {
+    setPlayingUI(false);
+    setAudioStatus('❌ 需要先点击页面解锁声音', 'error');
+  });
+}
+
+// Web Speech API（有西语voice时使用）
+function playWebSpeech(text) {
   window.speechSynthesis.cancel();
-
   setTimeout(() => {
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = 'es-ES';
-    utter.rate = 0.75;   // 稍慢，更清晰
+    utter.rate = 0.75;
     utter.pitch = 1;
     utter.volume = 1;
-
-    utter.onstart = () => {
-      if (btn) { btn.classList.add('playing'); btn.textContent = '🔊 正在发音...'; }
-      if (card) card.classList.add('playing');
-    };
-    utter.onend = () => {
-      if (btn) { btn.classList.remove('playing'); btn.innerHTML = '🔊 再听一遍'; }
-      if (card) card.classList.remove('playing');
-    };
-    utter.onerror = () => {
-      if (btn) { btn.classList.remove('playing'); btn.innerHTML = '🔊 再听一遍'; }
-      if (card) card.classList.remove('playing');
-    };
-
-    // 华为额外修复：某些版本需要选择正确的 voice
-    const voices = window.speechSynthesis.getVoices();
-    const esVoice = voices.find(v =>
-      v.lang.startsWith('es') ||
-      v.name.toLowerCase().includes('spanish') ||
-      v.name.toLowerCase().includes('español')
-    );
     if (esVoice) utter.voice = esVoice;
 
-    window.speechSynthesis.speak(utter);
+    // 超时检测：如果1.5秒内未触发onstart，判定为静默失败→切到有道
+    let started = false;
+    const timeout = setTimeout(() => {
+      if (!started) {
+        window.speechSynthesis.cancel();
+        audioMode = AUDIO_MODE.YOUDAO;
+        setAudioStatus('📻 有道TTS模式（系统TTS静默）', 'fallback');
+        playYoudao(text);
+      }
+    }, 1500);
 
-    // 华为 bug：长时间不说话后 synthesis 会挂住，用 resume 解锁
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    }
+    utter.onstart = () => { started = true; clearTimeout(timeout); setPlayingUI(true); };
+    utter.onend = () => setPlayingUI(false);
+    utter.onerror = () => {
+      clearTimeout(timeout);
+      setPlayingUI(false);
+      if (!started) {
+        audioMode = AUDIO_MODE.YOUDAO;
+        setAudioStatus('📻 有道TTS模式（系统TTS出错）', 'fallback');
+        playYoudao(text);
+      }
+    };
+
+    window.speechSynthesis.speak(utter);
+    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
   }, 120);
 }
 
-function showNoTTSWarning() {
-  alert('你的浏览器不支持语音功能。\n请尝试用 Chrome 浏览器打开本页面。');
+function setPlayingUI(playing) {
+  const btn = document.getElementById('speakBtn');
+  const card = document.getElementById('flashcard');
+  if (btn) {
+    btn.classList.toggle('playing', playing);
+    btn.innerHTML = playing ? '🔊 正在发音...' : '🔊 再听一遍';
+  }
+  if (card) card.classList.toggle('playing', playing);
 }
 
-// 华为上 voices 可能延迟加载，监听变化
-if ('speechSynthesis' in window) {
-  window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+function speakText(text) {
+  unlockAudio();
+
+  if (audioMode === AUDIO_MODE.DETECTING) {
+    // voices还没加载完，先用有道保证有声音
+    playYoudao(text);
+    return;
+  }
+  if (audioMode === AUDIO_MODE.WEB_SPEECH) {
+    playWebSpeech(text);
+  } else if (audioMode === AUDIO_MODE.YOUDAO) {
+    playYoudao(text);
+  }
 }
 
 // ===== STATE =====
