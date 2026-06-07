@@ -257,6 +257,38 @@
   .speak-btn:active { transform: scale(0.95); }
   .speak-btn.playing { animation: speakPulse 0.5s ease-out; }
   @keyframes speakPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  .speak-btn.stop {
+    background: linear-gradient(135deg, #ff6b6b, #e74c3c);
+    box-shadow: 0 4px 14px rgba(231,76,60,0.35);
+  }
+
+  /* ===== SPEED SELECTOR ===== */
+  .speed-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .speed-label { font-size: 0.8rem; font-weight: 700; color: #e75480; }
+  .speed-btn {
+    background: rgba(255,255,255,0.8);
+    border: 2px solid #ffb3d1;
+    border-radius: 12px;
+    padding: 5px 12px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 900;
+    color: #d63384;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .speed-btn.active {
+    background: linear-gradient(135deg, #d63384, #e75480);
+    color: white;
+    border-color: transparent;
+  }
 
   /* ===== QUIZ SECTION ===== */
   .quiz-section { display: none; }
@@ -420,10 +452,26 @@
       <div class="speak-hint">🔊 点击发音</div>
     </div>
 
-    <!-- Speak Button -->
-    <button class="speak-btn" id="speakBtn" onclick="speakCurrent()">
-      🔊 再听一遍
-    </button>
+    <!-- Speed Selector -->
+    <div class="speed-row">
+      <span class="speed-label">速度：</span>
+      <button class="speed-btn" onclick="setSpeed(0.5)" id="speed05">0.5x</button>
+      <button class="speed-btn active" onclick="setSpeed(0.8)" id="speed08">0.8x</button>
+      <button class="speed-btn" onclick="setSpeed(1.0)" id="speed10">1.0x</button>
+    </div>
+
+    <!-- Speak / Play-All Buttons -->
+    <div style="display:flex;gap:10px;justify-content:center;margin-bottom:14px;flex-wrap:wrap">
+      <button class="speak-btn" id="speakBtn" onclick="speakCurrent()" style="margin:0">
+        🔊 再听一遍
+      </button>
+      <button class="speak-btn" id="playAllBtn" onclick="startPlayAll()" style="margin:0;background:linear-gradient(135deg,#a855f7,#7c3aed);box-shadow:0 4px 14px rgba(124,58,237,0.35)">
+        ▶ 朗读全部
+      </button>
+      <button class="speak-btn stop" id="stopAllBtn" onclick="stopPlayAll()" style="margin:0;display:none">
+        ⏹ 停止
+      </button>
+    </div>
 
     <!-- Nav -->
     <div class="nav-row">
@@ -644,58 +692,62 @@ if ('speechSynthesis' in window) {
 }
 
 // 有道词典TTS（国内可访问，支持西语 le=es）
-function playYoudao(text) {
+function playYoudao(text, onDone) {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   const url = 'https://dict.youdao.com/dictvoice?le=es&audio=' + encodeURIComponent(text);
   const audio = new Audio(url);
   audio.volume = 1;
+  audio.playbackRate = speechRate;
   currentAudio = audio;
 
   setPlayingUI(true);
-  audio.onended = () => setPlayingUI(false);
+  audio.onended = () => { setPlayingUI(false); onDone && onDone(); };
   audio.onerror = () => {
     setPlayingUI(false);
     setAudioStatus('❌ 加载失败，请检查网络', 'error');
+    onDone && onDone();
   };
 
   const p = audio.play();
   if (p) p.catch(() => {
     setPlayingUI(false);
     setAudioStatus('❌ 需要先点击页面解锁声音', 'error');
+    onDone && onDone();
   });
 }
 
 // Web Speech API（有西语voice时使用）
-function playWebSpeech(text) {
+function playWebSpeech(text, onDone) {
   window.speechSynthesis.cancel();
   setTimeout(() => {
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = 'es-ES';
-    utter.rate = 0.75;
+    utter.rate = speechRate;
     utter.pitch = 1;
     utter.volume = 1;
     if (esVoice) utter.voice = esVoice;
 
-    // 超时检测：如果1.5秒内未触发onstart，判定为静默失败→切到有道
     let started = false;
     const timeout = setTimeout(() => {
       if (!started) {
         window.speechSynthesis.cancel();
         audioMode = AUDIO_MODE.YOUDAO;
         setAudioStatus('📻 有道TTS模式（系统TTS静默）', 'fallback');
-        playYoudao(text);
+        playYoudao(text, onDone);
       }
     }, 1500);
 
     utter.onstart = () => { started = true; clearTimeout(timeout); setPlayingUI(true); };
-    utter.onend = () => setPlayingUI(false);
+    utter.onend = () => { setPlayingUI(false); onDone && onDone(); };
     utter.onerror = () => {
       clearTimeout(timeout);
       setPlayingUI(false);
       if (!started) {
         audioMode = AUDIO_MODE.YOUDAO;
         setAudioStatus('📻 有道TTS模式（系统TTS出错）', 'fallback');
-        playYoudao(text);
+        playYoudao(text, onDone);
+      } else {
+        onDone && onDone();
       }
     };
 
@@ -714,19 +766,67 @@ function setPlayingUI(playing) {
   if (card) card.classList.toggle('playing', playing);
 }
 
-function speakText(text) {
+function speakText(text, onDone) {
   unlockAudio();
 
   if (audioMode === AUDIO_MODE.DETECTING) {
-    // voices还没加载完，先用有道保证有声音
-    playYoudao(text);
+    playYoudao(text, onDone);
     return;
   }
   if (audioMode === AUDIO_MODE.WEB_SPEECH) {
-    playWebSpeech(text);
+    playWebSpeech(text, onDone);
   } else if (audioMode === AUDIO_MODE.YOUDAO) {
-    playYoudao(text);
+    playYoudao(text, onDone);
   }
+}
+
+// ===== SPEED =====
+let speechRate = 0.8;
+
+function setSpeed(rate) {
+  speechRate = rate;
+  ['05','08','10'].forEach(id => {
+    document.getElementById('speed' + id).classList.remove('active');
+  });
+  const map = { 0.5: 'speed05', 0.8: 'speed08', 1.0: 'speed10' };
+  if (map[rate]) document.getElementById(map[rate]).classList.add('active');
+}
+
+// ===== PLAY ALL =====
+let playAllActive = false;
+let playAllIdx = 0;
+
+function startPlayAll() {
+  if (!currentWords.length) return;
+  stopPlayAll();
+  playAllActive = true;
+  playAllIdx = 0;
+  unlockAudio();
+  document.getElementById('playAllBtn').style.display = 'none';
+  document.getElementById('stopAllBtn').style.display = 'flex';
+  playAllNext();
+}
+
+function stopPlayAll() {
+  playAllActive = false;
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  document.getElementById('playAllBtn').style.display = 'flex';
+  document.getElementById('stopAllBtn').style.display = 'none';
+  setPlayingUI(false);
+}
+
+function playAllNext() {
+  if (!playAllActive || playAllIdx >= currentWords.length) {
+    stopPlayAll();
+    return;
+  }
+  currentIndex = playAllIdx++;
+  showCard();
+  speakText(currentWords[currentIndex].es, () => {
+    if (!playAllActive) return;
+    setTimeout(playAllNext, 700);
+  });
 }
 
 // ===== STATE =====
